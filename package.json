@@ -1,0 +1,18 @@
+{
+  "name": "plasvora-plastic-rush",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Game 3D Endless Runner bertema sampah plastik untuk pameran dan perlombaan aplikasi Plasvora",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "three": "^0.170.0"
+  },
+  "devDependencies": {
+    "vite": "^6.0.11"
+  }
+}
