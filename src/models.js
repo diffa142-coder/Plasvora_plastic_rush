@@ -1,6 +1,10 @@
 import * as THREE from 'three';
 import { applyCurvedWorld } from './curvedWorld.js';
-import stickerShieldUrl from './assets/sticker-plasvora-shield.png';
+
+const stickerShieldUrl =
+  typeof import.meta !== 'undefined' && import.meta.env
+    ? './assets/sticker-plasvora-shield.png'
+    : './src/assets/sticker-plasvora-shield.png';
 
 const textureLoader = new THREE.TextureLoader();
 const plasvoraStickerTex = textureLoader.load(stickerShieldUrl);
