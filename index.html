@@ -45,13 +45,34 @@
       </div>
 
       <div class="hud-actions">
-        <button id="fullscreen-btn" class="hud-btn" type="button" aria-label="Layar Penuh" title="Layar Penuh">⛶</button>
         <button id="sound-btn" class="hud-btn" type="button" aria-label="Suara" title="Suara">🔊</button>
         <button id="pause-btn" class="hud-btn" type="button" aria-label="Jeda" title="Jeda">
           <span class="pause-bars"><i></i><i></i></span>
         </button>
       </div>
     </header>
+
+    <!-- Tombol Pojok Kanan Bawah untuk Fullscreen (selalu tampil di HP & PC) -->
+    <button
+      id="corner-fullscreen-btn"
+      class="corner-fullscreen-btn"
+      type="button"
+      aria-label="Layar Penuh"
+      title="Layar Penuh (Fullscreen)"
+    >
+      <svg id="fs-icon-expand" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polyline points="15 3 21 3 21 9"></polyline>
+        <polyline points="9 21 3 21 3 15"></polyline>
+        <line x1="21" y1="3" x2="14" y2="10"></line>
+        <line x1="3" y1="21" x2="10" y2="14"></line>
+      </svg>
+      <svg id="fs-icon-shrink" class="hidden" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polyline points="4 14 10 14 10 20"></polyline>
+        <polyline points="20 10 14 10 14 4"></polyline>
+        <line x1="14" y1="10" x2="21" y2="3"></line>
+        <line x1="3" y1="21" x2="10" y2="14"></line>
+      </svg>
+    </button>
 
     <!-- Badge Kecepatan / Combo / Jarak -->
     <div id="combo-toast" class="combo-toast hidden">+1 KRESEK MASUK!</div>

@@ -57,7 +57,9 @@ const gameoverScreenEl = document.getElementById('gameover-screen');
 
 const startBtn = document.getElementById('start-btn');
 const startFullscreenBtn = document.getElementById('start-fullscreen-btn');
-const fullscreenBtn = document.getElementById('fullscreen-btn');
+const cornerFullscreenBtn = document.getElementById('corner-fullscreen-btn');
+const fsIconExpandEl = document.getElementById('fs-icon-expand');
+const fsIconShrinkEl = document.getElementById('fs-icon-shrink');
 const pauseFullscreenBtn = document.getElementById('pause-fullscreen-btn');
 const pauseBtn = document.getElementById('pause-btn');
 const soundBtn = document.getElementById('sound-btn');
@@ -760,12 +762,13 @@ function isFullscreenActive() {
 
 function syncFullscreenUi() {
   const active = isFullscreenActive();
-  fullscreenBtn.textContent = active ? '🗗' : '⛶';
+  fsIconExpandEl.classList.toggle('hidden', active);
+  fsIconShrinkEl.classList.toggle('hidden', !active);
   startFullscreenBtn.textContent = active
-    ? '🗗 Keluar Layar Penuh'
+    ? 'Keluar Layar Penuh'
     : '⛶ Mode Layar Penuh (Fullscreen)';
   pauseFullscreenBtn.textContent = active
-    ? '🗗 Keluar Layar Penuh'
+    ? 'Keluar Layar Penuh'
     : '⛶ Mode Layar Penuh';
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
@@ -796,7 +799,7 @@ document.addEventListener('webkitfullscreenchange', syncFullscreenUi);
 // Button Listeners
 startBtn.addEventListener('click', startGame);
 startFullscreenBtn.addEventListener('click', toggleFullscreen);
-fullscreenBtn.addEventListener('click', toggleFullscreen);
+cornerFullscreenBtn.addEventListener('click', toggleFullscreen);
 pauseFullscreenBtn.addEventListener('click', toggleFullscreen);
 pauseBtn.addEventListener('click', pauseGame);
 resumeBtn.addEventListener('click', resumeGame);
