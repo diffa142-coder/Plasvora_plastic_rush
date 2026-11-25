@@ -125,6 +125,40 @@ export function createPlayer() {
   rightArm.position.y = -0.22;
   rightArmPivot.add(rightArm);
 
+  // Bazooka Eco di bahu kanan (muncul saat melawan Boss UFO di kelipatan 100m!)
+  const bazookaGroup = new THREE.Group();
+  bazookaGroup.position.set(0.48, 0.34, -0.15);
+  bazookaGroup.visible = false;
+  torsoGroup.add(bazookaGroup);
+
+  const bzkTubeMat = cMat({ color: 0x15803d });
+  const bzkRimMat = cMat({ color: 0xfacc15 });
+  const bzkDarkMat = cMat({ color: 0x1e293b });
+  const laserMat = new THREE.MeshBasicMaterial({
+    color: 0xff2a2a,
+    transparent: true,
+    opacity: 0.65
+  });
+  applyCurvedWorld(laserMat, 1.0);
+
+  const bzkTube = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.17, 1.35, 12), bzkTubeMat);
+  bzkTube.rotation.x = Math.PI / 2;
+  const bzkFront = new THREE.Mesh(new THREE.CylinderGeometry(0.21, 0.16, 0.22, 12), bzkRimMat);
+  bzkFront.rotation.x = Math.PI / 2;
+  bzkFront.position.z = -0.68;
+  const bzkBack = new THREE.Mesh(new THREE.CylinderGeometry(0.19, 0.22, 0.2, 12), bzkDarkMat);
+  bzkBack.rotation.x = Math.PI / 2;
+  bzkBack.position.z = 0.68;
+  const bzkSight = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.22, 0.18), bzkRimMat);
+  bzkSight.position.set(0, 0.2, -0.35);
+
+  // Garis bidik laser dari ujung bazooka ke depan agar mudah diarahkan ke UFO
+  const laserBeam = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 24, 6), laserMat);
+  laserBeam.rotation.x = Math.PI / 2;
+  laserBeam.position.set(0, 0.08, -12.8);
+
+  bazookaGroup.add(bzkTube, bzkFront, bzkBack, bzkSight, laserBeam);
+
   // Kaki
   const legGeo = new THREE.CapsuleGeometry(0.12, 0.32, 4, 8);
   const shoeGeo = new THREE.BoxGeometry(0.24, 0.16, 0.36);
@@ -166,13 +200,15 @@ export function createPlayer() {
     root,
     actor,
     shadow,
-    setRunning(phase, tiltX, jumpY, kickTimer) {
+    setRunning(phase, tiltX, jumpY, kickTimer, holdingBazooka = false, bazookaAimPitch = 0) {
       splatGroup.visible = false;
       actor.scale.set(1, 1, 1);
+      bazookaGroup.visible = holdingBazooka;
+      bazookaGroup.rotation.x = bazookaAimPitch;
 
       const s = Math.sin(phase);
 
-      if (kickTimer > 0) {
+      if (kickTimer > 0 && !holdingBazooka) {
         // Pose tendangan penuh yang jelas terlihat dari kamera belakang
         const p = 1 - kickTimer; // 0 -> 1
         const kickCurve = Math.sin(Math.min(1, p * 1.15) * Math.PI);
@@ -209,8 +245,14 @@ export function createPlayer() {
 
       leftArmPivot.rotation.x = s * 0.9;
       leftArmPivot.rotation.z = 0;
-      rightArmPivot.rotation.x = -s * 0.9;
-      rightArmPivot.rotation.z = 0;
+      if (holdingBazooka) {
+        // Tangan kanan memegang bazooka di bahu
+        rightArmPivot.rotation.x = 1.25;
+        rightArmPivot.rotation.z = -0.15;
+      } else {
+        rightArmPivot.rotation.x = -s * 0.9;
+        rightArmPivot.rotation.z = 0;
+      }
       leftLegPivot.rotation.z = 0;
       rightLegPivot.rotation.z = 0;
 
@@ -797,7 +839,7 @@ export function createTrackChunk(length = 20) {
   for (let z = -length / 2 + 3; z < length / 2; z += 6.5) {
     [-1, 1].forEach((side) => {
       const tree = buildTree();
-      const xPos = side * (5.8 + Math.random() * 4.5);
+      const xPos = side * (6.5 + Math.random() * 4.2);
       const scale = 0.85 + Math.random() * 0.45;
       tree.position.set(xPos, 0, z + (Math.random() - 0.5) * 2.2);
       tree.scale.setScalar(scale);
@@ -805,7 +847,7 @@ export function createTrackChunk(length = 20) {
 
       if (Math.random() > 0.35) {
         const bush = buildBush();
-        bush.position.set(side * (4.3 + Math.random() * 1.4), 0, z + 2.6);
+        bush.position.set(side * (5.8 + Math.random() * 1.4), 0, z + 2.6);
         group.add(bush);
       }
     });
@@ -847,4 +889,445 @@ export function createClouds() {
   });
 
   return cloudGroup;
+}
+
+// Item Bom untuk meledakkan Truk Boss (muncul saat Boss aktif)
+export function createBombItem() {
+  const group = new THREE.Group();
+  const shadow = createBlobShadow(0.62);
+  group.add(shadow);
+
+  // Cincin kuning-merah di tanah agar mudah dikenali sebagai bom
+  const ringMat = cMat({ color: 0xfacc15, emissive: 0x7a4800 });
+  const ring = new THREE.Mesh(new THREE.RingGeometry(0.55, 0.74, 20), ringMat);
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.y = 0.04;
+  group.add(ring);
+
+  const meshGroup = new THREE.Group();
+  meshGroup.position.y = 0.65;
+  group.add(meshGroup);
+
+  const bodyMat = cMat({ color: 0x1e293b });
+  const bandMat = cMat({ color: 0xfacc15, emissive: 0x553800 });
+  const capMat = cMat({ color: 0x64748b });
+  const fuseMat = cMat({ color: 0xf1f5f9 });
+  const flameMat = cMat({ color: 0xff5a1f, emissive: 0xff3b00 });
+  const coreMat = cMat({ color: 0xfef08a, emissive: 0xfacc15 });
+
+  const sphere = new THREE.Mesh(new THREE.SphereGeometry(0.46, 14, 12), bodyMat);
+  const belt = new THREE.Mesh(new THREE.TorusGeometry(0.46, 0.06, 8, 18), bandMat);
+  belt.rotation.x = Math.PI / 2;
+
+  const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.2, 0.16, 10), capMat);
+  cap.position.y = 0.46;
+
+  const fuse = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.26, 8), fuseMat);
+  fuse.position.set(0.05, 0.62, 0);
+  fuse.rotation.z = -0.3;
+
+  const flame = new THREE.Group();
+  flame.position.set(0.11, 0.76, 0);
+  const outerFlame = new THREE.Mesh(new THREE.SphereGeometry(0.14, 8, 8), flameMat);
+  const innerFlame = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), coreMat);
+  flame.add(outerFlame, innerFlame);
+
+  meshGroup.add(sphere, belt, cap, fuse, flame);
+
+  return { group, meshGroup, flame, ring };
+}
+
+// BOSS: Truk Compactor Sampah Putih-Hijau Limau Raksasa selebar 3 jalur (100% mirip foto belakang terbuka)
+export function createBossTruck() {
+  const root = new THREE.Group();
+  const shadow = createBlobShadow(3.2);
+  shadow.scale.set(1.08, 1.0, 1.05);
+  root.add(shadow);
+
+  const truckGroup = new THREE.Group();
+  root.add(truckGroup);
+
+  const whiteMat = cMat({ color: 0xf8fafc });     // Kabin & depan bak putih
+  const limeMat = cMat({ color: 0x84d618 });      // Hijau limau terang (belakang bak & tailgate)
+  const limeDarkMat = cMat({ color: 0x62ab0d });  // Hijau limau gelap untuk tulang rangka
+  const chassisMat = cMat({ color: 0x161a22 });   // Hitam sasis, spakbor, mudflap
+  const interiorMat = cMat({ color: 0x0b0f16 });  // Rongga dalam bak gelap
+  const deckMat = cMat({ color: 0x2a313d });      // Lantai dalam bak
+  const rimMat = cMat({ color: 0xdbe3ec });       // Velg silver cerah
+  const hubMat = cMat({ color: 0x64748b });
+  const steelMat = cMat({ color: 0xcbd5e1 });     // Piston hidrolik krom
+  const glassMat = cMat({ color: 0x334155 });
+  const redMat = cMat({ color: 0xef4444 });
+  const tailRedMat = cMat({ color: 0xff2438, emissive: 0xb00014 });
+  const tailAmberMat = cMat({ color: 0xffa61a, emissive: 0xa85800 });
+  const beaconMat = cMat({ color: 0xff7a00, emissive: 0xd44a00 });
+
+  // 1. Sasis & rangka bawah hitam
+  const chassis = new THREE.Mesh(new THREE.BoxGeometry(4.4, 0.42, 4.9), chassisMat);
+  chassis.position.set(0, 0.84, -0.15);
+  truckGroup.add(chassis);
+
+  // 2. Kabin depan PUTIH + lampu suar oranye di atap
+  const cab = new THREE.Mesh(new THREE.BoxGeometry(5.1, 2.2, 1.5), whiteMat);
+  cab.position.set(0, 2.1, -1.95);
+  const cabBumper = new THREE.Mesh(new THREE.BoxGeometry(5.2, 0.42, 0.28), chassisMat);
+  cabBumper.position.set(0, 0.96, -2.68);
+  const windshield = new THREE.Mesh(new THREE.BoxGeometry(4.5, 0.85, 0.12), glassMat);
+  windshield.position.set(0, 2.45, -2.68);
+  const beacon = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.18, 0.26, 10), beaconMat);
+  beacon.position.set(0, 3.32, -1.5);
+  truckGroup.add(cab, cabBumper, windshield, beacon);
+
+  // Kaca samping & spion hitam bertingkat seperti foto
+  [-2.57, 2.57].forEach((sx) => {
+    const sideWin = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.8, 0.95), glassMat);
+    sideWin.position.set(sx, 2.45, -1.9);
+    const mirrorArm = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.08, 0.08), chassisMat);
+    mirrorArm.position.set(sx + Math.sign(sx) * 0.18, 2.75, -2.42);
+    const mirrorHead = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.52, 0.22), chassisMat);
+    mirrorHead.position.set(sx + Math.sign(sx) * 0.34, 2.45, -2.45);
+    truckGroup.add(sideWin, mirrorArm, mirrorHead);
+  });
+
+  // 3. Bak Utama BERONGGA (bagian depan putih, bagian belakang hijau limau, belakang TERBUKA lebar!)
+  const bayFloor = new THREE.Mesh(new THREE.BoxGeometry(5.5, 0.18, 3.0), deckMat);
+  bayFloor.position.set(0, 1.15, 0.4);
+  const bayCeilingFront = new THREE.Mesh(new THREE.BoxGeometry(5.5, 0.18, 1.5), whiteMat);
+  bayCeilingFront.position.set(0, 3.24, -0.35);
+  const bayCeilingRear = new THREE.Mesh(new THREE.BoxGeometry(5.5, 0.18, 1.55), limeMat);
+  bayCeilingRear.position.set(0, 3.24, 1.15);
+  const bayInnerBackWall = new THREE.Mesh(new THREE.BoxGeometry(5.26, 2.1, 0.18), interiorMat);
+  bayInnerBackWall.position.set(0, 2.2, -0.98);
+  truckGroup.add(bayFloor, bayCeilingFront, bayCeilingRear, bayInnerBackWall);
+
+  // Dinding kiri & kanan bak: depan putih, belakang hijau limau + tulang penguat miring
+  [-2.66, 2.66].forEach((wx) => {
+    const wallFront = new THREE.Mesh(new THREE.BoxGeometry(0.18, 2.16, 1.48), whiteMat);
+    wallFront.position.set(wx, 2.2, -0.36);
+    const wallRear = new THREE.Mesh(new THREE.BoxGeometry(0.18, 2.16, 1.54), limeMat);
+    wallRear.position.set(wx, 2.2, 1.14);
+    const rearPillar = new THREE.Mesh(new THREE.BoxGeometry(0.24, 2.25, 0.28), limeDarkMat);
+    rearPillar.position.set(wx, 2.22, 1.84);
+    const arch = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.42, 1.45), chassisMat);
+    arch.position.set(wx - Math.sign(wx) * 0.05, 1.15, 0.95);
+    const mudflap = new THREE.Mesh(new THREE.BoxGeometry(0.54, 0.62, 0.08), chassisMat);
+    mudflap.position.set(wx - Math.sign(wx) * 0.14, 0.68, 1.62);
+    truckGroup.add(wallFront, wallRear, rearPillar, arch, mudflap);
+  });
+
+  // Ban serep / tumpukan sampah di dalam lantai bak terbuka (persis detail di foto)
+  const spareTire = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.24, 14), chassisMat);
+  spareTire.position.set(-1.35, 1.36, 1.15);
+  const trashMound = new THREE.Mesh(new THREE.DodecahedronGeometry(0.68, 1), chassisMat);
+  trashMound.scale.set(1.3, 0.75, 1.1);
+  trashMound.position.set(1.25, 1.52, 0.45);
+  truckGroup.add(spareTire, trashMound);
+
+  // Strip reflektif merah-putih di bawah sisi bak & pelindung samping antara roda
+  [-2.78, 2.78].forEach((sx) => {
+    for (let i = 0; i < 6; i++) {
+      const segMat = i % 2 === 0 ? redMat : whiteMat;
+      const sideBodyTape = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.13, 0.46), segMat);
+      sideBodyTape.position.set(sx, 1.18, -0.8 + i * 0.5);
+      const guardSeg = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.16, 0.34), segMat);
+      guardSeg.position.set(sx, 0.72, -1.2 + i * 0.36);
+      truckGroup.add(sideBodyTape, guardSeg);
+    }
+  });
+
+  // 4. Lampu Belakang Segiempat Merah-Oranye + Palang Bumper Pengaman Merah-Putih (Persis Foto!)
+  [-1.65, 1.65].forEach((lx) => {
+    const housing = new THREE.Mesh(new THREE.BoxGeometry(0.76, 0.32, 0.14), chassisMat);
+    housing.position.set(lx, 0.96, 2.12);
+    const redLens = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.24, 0.08), tailRedMat);
+    redLens.position.set(lx - Math.sign(lx) * 0.1, 0.96, 2.18);
+    const amberLens = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.24, 0.08), tailAmberMat);
+    amberLens.position.set(lx + Math.sign(lx) * 0.24, 0.96, 2.18);
+    const strut = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.42, 0.16), chassisMat);
+    strut.position.set(lx * 0.85, 0.72, 2.12);
+    truckGroup.add(housing, redLens, amberLens, strut);
+  });
+
+  // Palang pengaman belakang motif merah-putih reflektif
+  const rearGuardGroup = new THREE.Group();
+  rearGuardGroup.position.set(0, 0.54, 2.26);
+  for (let i = 0; i < 10; i++) {
+    const segMat = i % 2 === 0 ? redMat : whiteMat;
+    const barSeg = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.22, 0.12), segMat);
+    barSeg.position.x = -2.16 + i * 0.48;
+    rearGuardGroup.add(barSeg);
+  }
+  truckGroup.add(rearGuardGroup);
+
+  // 5. PINTU BELAKANG COMPACTOR RAKSASA TERANGKAT TINGGI KE ATAS (Ciri khas utama foto!)
+  const tailgatePivot = new THREE.Group();
+  tailgatePivot.position.set(0, 3.28, 1.85);
+  tailgatePivot.rotation.x = -2.08; // Terangkat tinggi terbuka ke atas-belakang!
+  truckGroup.add(tailgatePivot);
+
+  // Bodi utama tailgate hijau limau (besar, tebal & tinggi!)
+  const tgBackShell = new THREE.Mesh(new THREE.BoxGeometry(5.56, 2.15, 1.05), limeMat);
+  tgBackShell.position.set(0, -1.05, 0.58);
+  const tgUpperJaw = new THREE.Mesh(new THREE.BoxGeometry(5.4, 0.95, 1.25), limeMat);
+  tgUpperJaw.position.set(0, -1.85, 0.82);
+  const tgDarkUnderside = new THREE.Mesh(new THREE.BoxGeometry(5.1, 1.85, 0.22), interiorMat);
+  tgDarkUnderside.position.set(0, -1.05, 0.05);
+  tailgatePivot.add(tgBackShell, tgUpperJaw, tgDarkUnderside);
+
+  // Tulang rangka samping tailgate & pipa hidrolik krom
+  [-2.7, 2.7].forEach((tx) => {
+    const tgRib = new THREE.Mesh(new THREE.BoxGeometry(0.24, 2.3, 1.28), limeDarkMat);
+    tgRib.position.set(tx, -1.12, 0.62);
+    const tgCylinder = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 1.75, 8), steelMat);
+    tgCylinder.position.set(tx - Math.sign(tx) * 0.22, -0.95, 1.2);
+    tailgatePivot.add(tgRib, tgCylinder);
+  });
+
+  // Dua piston hidrolik silver menopang tailgate terangkat dari dinding samping bak
+  [-2.55, 2.55].forEach((px) => {
+    const piston = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.095, 1.65, 8), steelMat);
+    piston.position.set(px, 3.25, 2.22);
+    piston.rotation.x = 0.65;
+    truckGroup.add(piston);
+  });
+
+  // 6. 4 Roda besar dengan velg silver mengkilap
+  const wheels = [];
+  [
+    [-2.42, -1.95, 0.42],
+    [2.42, -1.95, 0.42],
+    [-2.38, 0.95, 0.66],
+    [2.38, 0.95, 0.66]
+  ].forEach(([wx, wz, width]) => {
+    const wGroup = new THREE.Group();
+    wGroup.position.set(wx, 0.64, wz);
+    const tire = new THREE.Mesh(new THREE.CylinderGeometry(0.64, 0.64, width, 16), chassisMat);
+    tire.rotation.z = Math.PI / 2;
+    const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.38, width + 0.03, 14), rimMat);
+    rim.rotation.z = Math.PI / 2;
+    const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, width + 0.06, 10), hubMat);
+    hub.rotation.z = Math.PI / 2;
+    wGroup.add(tire, rim, hub);
+    truckGroup.add(wGroup);
+    wheels.push(wGroup);
+  });
+
+  // 7. Si Boss Pembuang Sampah berdiri di dalam bibir bak terbuka (terlihat jelas di bawah tailgate raksasa!)
+  const bossRider = new THREE.Group();
+  bossRider.position.set(0, 1.24, 1.45);
+  truckGroup.add(bossRider);
+
+  const hoodieMat = cMat({ color: 0xf97316 });
+  const skinMat = cMat({ color: 0xfdba74 });
+  const capMat = cMat({ color: 0x9333ea });
+  const shadesMat = cMat({ color: 0x0f172a });
+  const bottleMat = cMat({ color: 0x38bdf8 });
+
+  const bTorso = new THREE.Mesh(new THREE.CapsuleGeometry(0.4, 0.4, 6, 12), hoodieMat);
+  bTorso.position.y = 0.56;
+  bossRider.add(bTorso);
+
+  const bHead = new THREE.Mesh(new THREE.SphereGeometry(0.42, 12, 12), skinMat);
+  bHead.position.y = 1.28;
+  const bCap = new THREE.Mesh(
+    new THREE.SphereGeometry(0.44, 12, 10, 0, Math.PI * 2, 0, Math.PI * 0.55),
+    capMat
+  );
+  bCap.position.y = 1.32;
+  const bShades = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.15, 0.18), shadesMat);
+  bShades.position.set(0, 1.28, 0.36);
+  bossRider.add(bHead, bCap, bShades);
+
+  const armGeo = new THREE.CapsuleGeometry(0.12, 0.36, 4, 8);
+  const bArmL = new THREE.Group();
+  bArmL.position.set(-0.5, 0.82, 0);
+  const bArmLMesh = new THREE.Mesh(armGeo, hoodieMat);
+  bArmLMesh.position.y = -0.22;
+  bArmL.add(bArmLMesh);
+
+  const bArmR = new THREE.Group();
+  bArmR.position.set(0.5, 0.82, 0);
+  const bArmRMesh = new THREE.Mesh(armGeo, hoodieMat);
+  bArmRMesh.position.y = -0.22;
+  const heldTrash = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.15, 0.45, 8), bottleMat);
+  heldTrash.position.set(0, -0.5, 0.12);
+  bArmR.add(bArmRMesh, heldTrash);
+  bossRider.add(bArmL, bArmR);
+
+  root.visible = false;
+
+  return {
+    root,
+    truckGroup,
+    bossRider,
+    setTruckState(phase, swayX, hitFlash, throwTimer, explodeProgress, riderX = 0) {
+      if (explodeProgress > 0) {
+        truckGroup.position.y = Math.sin(explodeProgress * Math.PI) * 4.2;
+        truckGroup.rotation.x = explodeProgress * 3.5;
+        truckGroup.rotation.z = explodeProgress * 4.5;
+        tailgatePivot.rotation.x = -2.08 - explodeProgress * 0.8;
+        const sc = Math.max(0.01, 1 - explodeProgress * 0.9);
+        truckGroup.scale.setScalar(sc);
+        return;
+      }
+
+      truckGroup.scale.setScalar(1);
+      truckGroup.rotation.x = 0;
+      truckGroup.rotation.z = swayX * 0.1;
+      truckGroup.position.y = Math.abs(Math.sin(phase * 1.4)) * 0.09;
+      truckGroup.position.x = swayX + (hitFlash > 0 ? Math.sin(hitFlash * 55) * 0.25 : 0);
+
+      tailgatePivot.rotation.x = -2.08 + Math.sin(phase * 0.9) * 0.05;
+      bossRider.position.x = riderX;
+
+      // Berkedip cepat saat terkena bom
+      truckGroup.visible = hitFlash <= 0 || Math.floor(hitFlash * 24) % 2 === 0;
+
+      wheels.forEach((w) => {
+        w.rotation.x -= 0.25;
+      });
+
+      if (throwTimer > 0) {
+        const p = 1 - throwTimer;
+        const swing = Math.sin(p * Math.PI);
+        bArmR.rotation.x = -2.2 * swing;
+        bArmL.rotation.z = 0.6 * swing;
+        heldTrash.visible = p < 0.35;
+      } else {
+        bArmR.rotation.x = Math.sin(phase) * 0.35;
+        bArmL.rotation.z = 0.25 + Math.cos(phase) * 0.15;
+        heldTrash.visible = false;
+      }
+    }
+  };
+}
+
+// Roket Bazooka yang ditembakkan pemain ke arah Boss UFO
+export function createBazookaRocket() {
+  const group = new THREE.Group();
+  const bodyMat = cMat({ color: 0xef4444, emissive: 0x550000 });
+  const tipMat = cMat({ color: 0xfacc15, emissive: 0x664400 });
+  const finMat = cMat({ color: 0x1e293b });
+  const flameMat = cMat({ color: 0xff7a00, emissive: 0xff4500 });
+
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.72, 10), bodyMat);
+  body.rotation.x = Math.PI / 2;
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(0.15, 0.32, 10), tipMat);
+  nose.rotation.x = -Math.PI / 2;
+  nose.position.z = -0.5;
+  const fins = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.08, 0.22), finMat);
+  fins.position.z = 0.24;
+  const flame = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.38, 8), flameMat);
+  flame.rotation.x = Math.PI / 2;
+  flame.position.z = 0.55;
+
+  group.add(body, nose, fins, flame);
+  return { group, flame };
+}
+
+// BOSS UFO SAMPAH (muncul di setiap kelipatan jarak 100m, menjatuhkan sampah dari udara!)
+export function createBossUfo() {
+  const root = new THREE.Group();
+  const shadow = createBlobShadow(1.75);
+  root.add(shadow);
+
+  const ufoGroup = new THREE.Group();
+  ufoGroup.position.y = 4.35;
+  root.add(ufoGroup);
+
+  const metalMat = cMat({ color: 0x94a3b8 });
+  const darkRimMat = cMat({ color: 0x334155 });
+  const neonPurpleMat = cMat({ color: 0xa855f7, emissive: 0x581c87 });
+  const domeMat = cMat({ color: 0x38bdf8, transparent: true, opacity: 0.72 });
+  const lightGreenMat = cMat({ color: 0x4ade80, emissive: 0x16a34a });
+  const lightYellowMat = cMat({ color: 0xfacc15, emissive: 0xa16207 });
+  const beamMat = new THREE.MeshBasicMaterial({
+    color: 0x4ade80,
+    transparent: true,
+    opacity: 0.24,
+    depthWrite: false
+  });
+  applyCurvedWorld(beamMat, 1.0);
+
+  // Piringan utama UFO
+  const saucer = new THREE.Mesh(new THREE.CylinderGeometry(1.15, 2.15, 0.55, 20), metalMat);
+  const lowerSaucer = new THREE.Mesh(new THREE.CylinderGeometry(2.15, 0.95, 0.36, 20), darkRimMat);
+  lowerSaucer.position.y = -0.44;
+  const neonRing = new THREE.Mesh(new THREE.TorusGeometry(2.12, 0.11, 8, 24), neonPurpleMat);
+  neonRing.rotation.x = Math.PI / 2;
+  neonRing.position.y = -0.22;
+  ufoGroup.add(saucer, lowerSaucer, neonRing);
+
+  // Lampu-lampu keliling piringan UFO
+  const ringLights = new THREE.Group();
+  for (let i = 0; i < 8; i++) {
+    const ang = (i / 8) * Math.PI * 2;
+    const bulb = new THREE.Mesh(
+      new THREE.SphereGeometry(0.16, 8, 8),
+      i % 2 === 0 ? lightGreenMat : lightYellowMat
+    );
+    bulb.position.set(Math.cos(ang) * 1.95, -0.22, Math.sin(ang) * 1.95);
+    ringLights.add(bulb);
+  }
+  ufoGroup.add(ringLights);
+
+  // Kubah kaca transparan + Alien/Boss Pembuang Sampah di dalamnya
+  const dome = new THREE.Mesh(
+    new THREE.SphereGeometry(1.1, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.52),
+    domeMat
+  );
+  dome.position.y = 0.24;
+  ufoGroup.add(dome);
+
+  const pilotMat = cMat({ color: 0xf97316 });
+  const shadesMat = cMat({ color: 0x0f172a });
+  const pilotHead = new THREE.Mesh(new THREE.SphereGeometry(0.45, 10, 10), pilotMat);
+  pilotHead.position.y = 0.62;
+  const pilotShades = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.16, 0.18), shadesMat);
+  pilotShades.position.set(0, 0.64, 0.38);
+  ufoGroup.add(pilotHead, pilotShades);
+
+  // Sinar traktor hijau di bawah UFO tempat sampah dijatuhkan
+  const tractorBeam = new THREE.Mesh(new THREE.ConeGeometry(1.45, 3.8, 16, 1, true), beamMat);
+  tractorBeam.position.y = -2.35;
+  ufoGroup.add(tractorBeam);
+
+  // Indikator target cincin di tanah tepat di bawah UFO
+  const targetRingMat = cMat({ color: 0xef4444, emissive: 0x7f1d1d });
+  const targetRing = new THREE.Mesh(new THREE.RingGeometry(0.95, 1.2, 20), targetRingMat);
+  targetRing.rotation.x = -Math.PI / 2;
+  targetRing.position.y = 0.04;
+  root.add(targetRing);
+
+  root.visible = false;
+
+  return {
+    root,
+    ufoGroup,
+    tractorBeam,
+    targetRing,
+    setUfoState(phase, tiltX, hitFlash, dropFlash, explodeProgress) {
+      if (explodeProgress > 0) {
+        ufoGroup.position.y = 4.35 + Math.sin(explodeProgress * Math.PI) * 2.8 - explodeProgress * 2.2;
+        ufoGroup.rotation.x = explodeProgress * 5;
+        ufoGroup.rotation.z = explodeProgress * 6;
+        const sc = Math.max(0.01, 1 - explodeProgress * 0.92);
+        ufoGroup.scale.setScalar(sc);
+        tractorBeam.visible = false;
+        return;
+      }
+
+      ufoGroup.scale.setScalar(1);
+      ufoGroup.position.y = 4.35 + Math.sin(phase * 1.2) * 0.28;
+      ufoGroup.rotation.z = tiltX;
+      ufoGroup.rotation.x = 0.12;
+      ufoGroup.position.x = hitFlash > 0 ? Math.sin(hitFlash * 55) * 0.25 : 0;
+      ringLights.rotation.y = phase * 0.8;
+
+      tractorBeam.visible = true;
+      tractorBeam.scale.setScalar(dropFlash > 0 ? 1.18 : 0.92);
+      targetRing.scale.setScalar(0.95 + Math.sin(phase * 2) * 0.1);
+      ufoGroup.visible = hitFlash <= 0 || Math.floor(hitFlash * 24) % 2 === 0;
+    }
+  };
 }

@@ -4,6 +4,11 @@ class CartoonAudio {
   constructor() {
     this.ctx = null;
     this.enabled = true;
+    this.bgmActive = false;
+    this.bgmMode = 'normal'; // 'normal' | 'boss'
+    this.bgmStep = 0;
+    this.bgmTimer = null;
+    this.stepToggle = false;
   }
 
   ensureContext() {
@@ -21,6 +26,89 @@ class CartoonAudio {
 
   setEnabled(value) {
     this.enabled = value;
+    if (!value) {
+      this.stopBgm();
+    } else if (this.bgmActive) {
+      this.startBgm(this.bgmMode);
+    }
+  }
+
+  startBgm(mode = 'normal') {
+    this.bgmActive = true;
+    this.bgmMode = mode;
+    clearInterval(this.bgmTimer);
+    if (!this.enabled) return;
+
+    const normalMelody = [523, 659, 784, 659, 587, 784, 880, 784, 659, 784, 1046, 784, 587, 659, 523, 392];
+    const normalBass = [261, 261, 196, 196, 220, 220, 174, 196];
+    const bossMelody = [440, 523, 440, 659, 440, 587, 523, 493, 440, 523, 440, 784, 659, 587, 523, 493];
+    const bossBass = [220, 220, 165, 165, 196, 196, 147, 165];
+
+    const intervalMs = mode === 'boss' ? 150 : 185;
+
+    this.bgmTimer = setInterval(() => {
+      if (!this.enabled || !this.bgmActive) return;
+      const mel = this.bgmMode === 'boss' ? bossMelody : normalMelody;
+      const bas = this.bgmMode === 'boss' ? bossBass : normalBass;
+      const idx = this.bgmStep % mel.length;
+      const note = mel[idx];
+
+      // Melodi utama ceria / tegang lembut
+      this.playTone(
+        note,
+        note * 1.01,
+        0.11,
+        this.bgmMode === 'boss' ? 'sawtooth' : 'triangle',
+        this.bgmMode === 'boss' ? 0.032 : 0.038
+      );
+
+      // Ketukan bass setiap 2 langkah
+      if (idx % 2 === 0) {
+        const bNote = bas[(idx / 2) % bas.length];
+        this.playTone(bNote, bNote * 0.98, 0.14, 'sine', 0.045);
+      }
+
+      // Ketukan ritme hi-hat / perkusi ringan setiap 4 langkah
+      if (idx % 4 === 2) {
+        this.playTone(1200, 420, 0.04, 'triangle', 0.025);
+      }
+
+      this.bgmStep += 1;
+    }, intervalMs);
+  }
+
+  setBgmMode(mode) {
+    if (this.bgmMode === mode && this.bgmTimer) return;
+    this.bgmMode = mode;
+    if (this.bgmActive && this.enabled) {
+      this.startBgm(mode);
+    }
+  }
+
+  stopBgm() {
+    clearInterval(this.bgmTimer);
+    this.bgmTimer = null;
+  }
+
+  playFootstep() {
+    this.stepToggle = !this.stepToggle;
+    const f1 = this.stepToggle ? 145 : 170;
+    this.playTone(f1, f1 * 0.65, 0.045, 'triangle', 0.045);
+  }
+
+  playTrapLand() {
+    this.playTone(135, 62, 0.075, 'sine', 0.075);
+  }
+
+  playButton() {
+    this.playTone(520, 760, 0.06, 'triangle', 0.08);
+  }
+
+  playVictory() {
+    this.playTone(523, 523, 0.09, 'triangle', 0.13, 0);
+    this.playTone(659, 659, 0.09, 'triangle', 0.13, 0.09);
+    this.playTone(784, 784, 0.09, 'triangle', 0.13, 0.18);
+    this.playTone(1046, 1174, 0.22, 'triangle', 0.15, 0.27);
   }
 
   playTone(freqStart, freqEnd, duration, type = 'sine', gainPeak = 0.14, delay = 0) {
@@ -84,6 +172,22 @@ class CartoonAudio {
   playThrow() {
     // Suara si pembuang sampah melempar rintangan ke lintasan
     this.playTone(520, 260, 0.14, 'sine', 0.1);
+  }
+
+  playBossEnter() {
+    this.playTone(220, 310, 0.18, 'sawtooth', 0.12, 0);
+    this.playTone(220, 310, 0.18, 'sawtooth', 0.12, 0.2);
+    this.playTone(310, 460, 0.28, 'sawtooth', 0.14, 0.4);
+  }
+
+  playExplosion() {
+    this.playTone(170, 38, 0.35, 'sawtooth', 0.22, 0);
+    this.playTone(110, 30, 0.4, 'square', 0.16, 0.04);
+  }
+
+  playBazookaShoot() {
+    this.playTone(480, 120, 0.18, 'sawtooth', 0.18, 0);
+    this.playTone(320, 680, 0.22, 'triangle', 0.12, 0.05);
   }
 }
 
